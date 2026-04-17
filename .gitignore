@@ -5,3 +5,6 @@
 *.pth
 *.pt
 *.dat
+datasets/
+preprocessing/dataset_json/*.json
+preprocessing/dataset_json/*.zip

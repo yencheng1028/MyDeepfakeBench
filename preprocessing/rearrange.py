@@ -83,8 +83,8 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
     ## Note: DeepfakeDetection dataset is a subset of FaceForensics++ dataset
     if dataset_name == 'FaceForensics++' or dataset_name == 'DeepFakeDetection' or dataset_name == 'FaceShifter': 
         ff_dict = {
-            'Deepfakes': 'FF-DF',
-            'Face2Face': 'FF-F2F',
+            'Deepfakes': 'FF-DF',               # 設定對應表: 將「資料夾名稱」映射到「標籤名稱」
+            'Face2Face': 'FF-F2F',              # 讓不同資料集在最後輸出的 JSON 裡有統一的標籤命名，方便模型訓練
             'FaceSwap': 'FF-FS',
             'Real': 'FF-real',
             'DFD_Real': 'DFD_real',
@@ -104,6 +104,7 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
         with open(file=os.path.join(os.path.join(dataset_root_path, 'FaceForensics++', 'test.json')), mode='r') as f:
             test_json = json.load(f)
             
+        # 記錄每個影片編號是 訓練/驗證/測試集
         # Create a dictionary for searching the data split 
         video_to_mode = dict()
         for d1, d2 in train_json:
@@ -144,8 +145,8 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
                 # Iterate over all videos
                 for video_path in os.scandir(os.path.join(dataset_path, 'original_sequences', 'youtube', compression_level, 'frames')):
                     if video_path.is_dir():
-                        video_name = video_path.name
-                        mode = video_to_mode[video_name]
+                        video_name = video_path.name                # 取得資料夾名稱
+                        mode = video_to_mode[video_name]            # 查字典看是 train, val 還是 test
                         frame_paths = [os.path.join(video_path, frame.name) for frame in os.scandir(video_path)]
                         dataset_dict['FaceForensics++']['FF-real'][mode][compression_level][video_name] = {'label': ff_dict[label], 'frames': frame_paths}
                         
@@ -160,6 +161,7 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
                     dataset_dict['FaceForensics++']['DFD_real']['train'][compression_level] = {}
                     dataset_dict['FaceForensics++']['DFD_real']['test'][compression_level] = {}
                     dataset_dict['FaceForensics++']['DFD_real']['val'][compression_level] = {}
+                # 不知道為什麼作者將影像同時存在 train, val, test中
                 # Iterate over all videos
                 for video_path in os.scandir(os.path.join(dataset_path, 'original_sequences', 'actors', compression_level, 'frames')):
                     if video_path.is_dir():
@@ -173,7 +175,7 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
             for label_dir in os.scandir(os.path.join(dataset_path, 'manipulated_sequences')):
                 if label_dir.is_dir():
                     label = label_dir.name
-                    dataset_dict['FaceForensics++'][ff_dict[label]] = {}
+                    dataset_dict['FaceForensics++'][ff_dict[label]] = {}                        # ff_dict[label]: 資料夾名稱(key)對應的標籤名(value) 
                     dataset_dict['FaceForensics++'][ff_dict[label]]['train'] = {}
                     dataset_dict['FaceForensics++'][ff_dict[label]]['test'] = {}
                     dataset_dict['FaceForensics++'][ff_dict[label]]['val'] = {}
@@ -201,8 +203,9 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
                                         try:
                                             mode = video_to_mode[video_name]
                                             dataset_dict['FaceForensics++'][ff_dict[label]][mode][compression_level][video_name] = {'label': ff_dict[label], 'frames': frame_paths, 'masks': mask_frames_paths}
+                                        # 如果 video_to_mode 表裡找不到這部影片，則把這部影片同時存在 train, val, test。
                                         # DeepfakeDetection dataset
-                                        except:
+                                        except:                                            
                                             dataset_dict['FaceForensics++'][ff_dict[label]]['train'][compression_level][video_name] = {'label': ff_dict[label], 'frames': frame_paths, 'masks': mask_frames_paths}
                                             dataset_dict['FaceForensics++'][ff_dict[label]]['val'][compression_level][video_name] = {'label': ff_dict[label], 'frames': frame_paths, 'masks': mask_frames_paths}
                                             dataset_dict['FaceForensics++'][ff_dict[label]]['test'][compression_level][video_name] = {'label': ff_dict[label], 'frames': frame_paths, 'masks': mask_frames_paths}
@@ -214,6 +217,7 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
 
         # get the DeepfakeDetection dataset from FaceForensics++ dataset
         if dataset_name == 'FaceForensics++':
+            # 指名要 FF++，只需要四種經典偽造（Deepfakes, Face2Face, FaceSwap, NeuralTextures）
             # Delete the DeepfakeDetection dataset from FaceForensics++ dataset
             del dataset_dict['FaceForensics++']['DFD_fake']
             del dataset_dict['FaceForensics++']['DFD_real']
@@ -245,11 +249,11 @@ def generate_dataset_file(dataset_name, dataset_root_path, output_file_path, com
 
         # if FaceForensics++, based on label and generate the json
         if dataset_name == 'FaceForensics++':
-            for label, value in dataset_dict['FaceForensics++'].items():
+            for label, value in dataset_dict['FaceForensics++'].items():            # label: 偽造類別, value: 所有的圖片路徑
                 if label != 'FF-real':
                     with open(os.path.join(output_file_path,f'{label}.json'), 'w') as f:
-                        data = {label: {'FF-real': dataset_dict['FaceForensics++']['FF-real'],
-                                        label: value,
+                        data = {label: {'FF-real': dataset_dict['FaceForensics++']['FF-real'],          # 真實影片路徑
+                                        label: value,                                                   # 偽造影片路徑
                                         }}
                         json.dump(data, f)
                         print(f"Finish writing {label}.json")
